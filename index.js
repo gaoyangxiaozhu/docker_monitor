@@ -14,7 +14,7 @@ var  logDir = config.logDir;
 
 
 function deleteLogFile(path){
-    var timemap = Math.round(new Date().getTime() / 1000);//秒
+    var timemap = Math.round(new Date().getTime() / 1000 / 3600 / 24);//天
     var files = [];
     if(fs.existsSync(path)){
         files = fs.readdirSync(path);//同步获取当前路径下的所有文件名称的数组对象
@@ -26,7 +26,7 @@ function deleteLogFile(path){
             // 删除过期文件
             var curTimemap = parseInt(file.split('_')[4].replace(/\.log/, ''));
 
-            if((timemap - curTimemap) > 7 * 24 * 60){
+            if((timemap - curTimemap) > 7){
                 fs.unlinkSync(curPath); //删除文件
             }
 
@@ -38,13 +38,12 @@ function deleteLogFile(path){
 deleteLogFile(logDir);
 
 
-
 //日志功能 记录每天的运行日志 只保留最近7天的日志文件
 var  logger = require('tracer').colorConsole({
     transport : function(data) {
         console.log(data.output);
         var tStr = parseDate(new Date()).replace(/-/g, '_');
-        var timemap = Math.round(new Date().getTime() / 1000);//秒
+        var timemap = Math.round(new Date().getTime() / 1000 / 3600 / 24);//天
         var logFilePath = './log/file_' + tStr + '_' + timemap + '.log';
         console.log(logFilePath);
         fs.appendFile(logFilePath, data.output + '\n', function(err){
