@@ -53,7 +53,7 @@ function getContainerStatus(id){
 }
 //格式化时间　yyyy-mm-dd
 function parseDate(date, accurate){
-    console.log(date);
+
     var year = date.getFullYear();
     var month = parseInt(date.getMonth()) + 1 < 10 ? '0' + parseInt(date.getMonth() + 1)  : parseInt(date.getMonth() + 1);
     var day = date.getDate() < 10 ? '0' + date.getDate() : date.getDate();
@@ -236,7 +236,7 @@ function startMonitor(co, currentTime, oldTime){
       if(err){
           console.log(err);
       }
-      console.log('start monitor');
+      
       //开始监控
       doWork(co, newTableName);
 
