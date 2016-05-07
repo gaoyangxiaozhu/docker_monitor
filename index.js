@@ -8,6 +8,52 @@ var request = require('./request');
 var       Q = require('q');
 var   async = require('async');
 
+var      fs = require('fs');
+var  logDir = config.logDir;
+
+
+
+function deleteLogFile(path){
+    var timemap = Math.round(new Date().getTime() / 1000);//秒
+    var files = [];
+    if(fs.existsSync(path)){
+        files = fs.readdirSync(path);//同步获取当前路径下的所有文件名称的数组对象
+        files.forEach(function(file, index){
+        var curPath = path + "/" + file;
+        if(fs.statSync(curPath).isDirectory()) { // recurse
+            deleteLogFile(curPath);
+        }else{
+            // 删除过期文件
+            var curTimemap = parseInt(file.split('_')[4].replace(/\.log/, ''));
+
+            if((timemap - curTimemap) > 7 * 24 * 60){
+                fs.unlinkSync(curPath); //删除文件
+            }
+
+        }
+      });
+  }
+}
+//删除过期日志
+deleteLogFile(logDir);
+
+
+
+//日志功能 记录每天的运行日志 只保留最近7天的日志文件
+var  logger = require('tracer').colorConsole({
+    transport : function(data) {
+        console.log(data.output);
+        var tStr = parseDate(new Date()).replace(/-/g, '_');
+        var timemap = Math.round(new Date().getTime() / 1000);//秒
+        var logFilePath = './log/file_' + tStr + '_' + timemap + '.log';
+        console.log(logFilePath);
+        fs.appendFile(logFilePath, data.output + '\n', function(err){
+            if (err) throw err;
+        });
+    }
+});
+
+
 var mysqlConfig = config.mysql;
 var endpoint = config.swarm_add;
 var dbname = config.dbname || 'docker';
@@ -23,7 +69,7 @@ function createAndConnectDB(){
 
     connection.query("CREATE DATABASE IF NOT EXISTS " + dbname, function(err, results){
         if(err){
-            console.log(err);
+            logger.error(err.message);
         }
         //数据库创建成功以后使用当前数据库
         connection.query('USE ' + dbname, defer.makeNodeResolver());
@@ -48,7 +94,7 @@ function inspectContainerMsg(id){
               return res.body;
             })
             .fail(function(err){
-                console.log(err.message);
+                logger.error(err.message);
               });
 }
 function getContainerStatus(id){
@@ -59,7 +105,7 @@ function getContainerStatus(id){
                 return status;
             })
             .fail(function(err){
-                console.log(err.message);
+                logger.error(err.message);
               });
 }
 //格式化时间　yyyy-mm-dd
@@ -162,7 +208,7 @@ function doWork(container, tableName){
                     ')';
                     connection.query(sql, function(err, results){
                     if(err){
-                        console.log(err);
+                        logger.error(err.message);
                     }
                 });
               }else{ //如果容器运行
@@ -209,7 +255,7 @@ function doWork(container, tableName){
                       });
 
                   }).fail(function(err){
-                      console.log(err);
+                      logger.error(err.message);
 
                   }).done();
 
@@ -224,7 +270,7 @@ function startMonitor(co, currentTime, oldTime){
     //删除２４小时之前的表
     connection.query("DROP TABLE IF EXISTS " + oldTableName, function(err, results){
         if(err){
-            console.log(err);
+            logger.error(message);
         }
 
     });
@@ -245,7 +291,7 @@ function startMonitor(co, currentTime, oldTime){
                         ")";
     connection.query(createSql, function(err, results){
       if(err){
-          console.log(err);
+          logger.error(err.message);
       }
 
       //开始监控
@@ -291,7 +337,7 @@ function main(){
 
   })
   .fail(function(err){
-      console.log(err.message);
+      logger.error(err.message);
   })
   .done();
 }
@@ -305,7 +351,7 @@ function runingMainForever(){
 
   async.forever(function (next) {
 
-      console.log('running main func at time ' + parseDate(new Date(), true) + '...');
+      logger.info('running main func at time %s ...', parseDate(new Date(), true));
       main();
       timeHander = setTimeout(next, 3000); //５分钟插入一次数据
   },
@@ -327,11 +373,11 @@ function runingMainForever(){
 createAndConnectDB()
 .then(function(){
     //创建成功以后运行主函数
-    console.log('use database ' + dbname + 'successfully...');
+    logger.info('use database %s successfully...', dbname);
 
-    console.log('start monitor...');
+    logger.info('start monitor...');
     runingMainForever();
 
 }).fail(function(err){
-    console.log(err);
+    logger.error(err.message);
 }).done();
