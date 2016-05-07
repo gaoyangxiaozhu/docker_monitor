@@ -45,7 +45,6 @@ var  logger = require('tracer').colorConsole({
         var tStr = parseDate(new Date()).replace(/-/g, '_');
         var timemap = Math.round(new Date().getTime() / 1000 / 3600 / 24);//天
         var logFilePath = './log/file_' + tStr + '_' + timemap + '.log';
-        console.log(logFilePath);
         fs.appendFile(logFilePath, data.output + '\n', function(err){
             if (err) throw err;
         });
@@ -347,15 +346,14 @@ var timeHander;
 function runingMainForever(){
 
   async.forever(function (next) {
-
-      logger.info('running main func at time %s ...', parseDate(new Date(), true));
       main();
-      timeHander = setTimeout(next, 3000); //５分钟插入一次数据
+      timeHander = setTimeout(next, 300000); //５分钟插入一次数据
   },
   function(stop){
       if(timeHander){
           clearTimeout(timeHander);
       }
+      logger.info('quit program');
       connection.end();//关闭数据库
       return ;
   });
