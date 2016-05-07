@@ -5,4 +5,5 @@ exports.mysql = {
     password : '123123'
 };
 exports.dbname = 'docker';
+exports.logDir = './log';
 exports.swarm_add = "http://10.103.242.128:2377/"
