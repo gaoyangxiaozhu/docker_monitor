@@ -10,18 +10,29 @@ var   async = require('async');
 
 var mysqlConfig = config.mysql;
 var endpoint = config.swarm_add;
+var dbname = config.dbname || 'docker';
 
 Q.longStackSupport = true;
 //连接数据库
 var connection = mysql.createConnection(mysqlConfig);
 
-connection.connect(function(err) {
-  if (err) {
-    console.error('error connecting: ' + err.stack);
-    return;
-  }
-});
 
+//根据配置文件创建并使用当前数据库
+function createAndConnectDB(){
+    var defer = Q.defer();
+
+    connection.query("CREATE DATABASE IF NOT EXISTS " + dbname, function(err, results){
+        if(err){
+            console.log(err);
+        }
+        //数据库创建成功以后使用当前数据库
+        connection.query('USE ' + dbname, defer.makeNodeResolver());
+
+    });
+
+    return defer.promise;
+
+}
 /*****************************主功能************************************/
 
 var getContainerListUrl = endpoint + '/containers/json?all=1';
@@ -54,12 +65,12 @@ function getContainerStatus(id){
 //格式化时间　yyyy-mm-dd
 function parseDate(date, accurate){
 
-    var year = date.getFullYear();
-    var month = parseInt(date.getMonth()) + 1 < 10 ? '0' + parseInt(date.getMonth() + 1)  : parseInt(date.getMonth() + 1);
-    var day = date.getDate() < 10 ? '0' + date.getDate() : date.getDate();
-    var hours = date.getHours();
-    var minutes = date.getMinutes();
-    var second = date.getSeconds();
+    var    year  = date.getFullYear();
+    var   month  = parseInt(date.getMonth()) + 1 < 10 ? '0' + parseInt(date.getMonth() + 1)  : parseInt(date.getMonth() + 1);
+    var     day  = date.getDate() < 10 ? '0' + date.getDate() : date.getDate();
+    var   hours  = date.getHours() < 10 ? '0' + date.getHours() : date.getHours();
+    var minutes  = date.getMinutes() < 10 ? '0' + date.getMinutes() : date.getMinutes();
+    var  second  = date.getSeconds() < 10 ? '0' + date.getSeconds() : date.getSeconds();
     if(accurate){
         return [[year, month, day].join("-"), [hours, minutes, second].join(':')].join(' ');
     }
@@ -200,7 +211,7 @@ function doWork(container, tableName){
                   }).fail(function(err){
                       console.log(err);
 
-                  });
+                  }).done();
 
               }
             });
@@ -236,7 +247,7 @@ function startMonitor(co, currentTime, oldTime){
       if(err){
           console.log(err);
       }
-      
+
       //开始监控
       doWork(co, newTableName);
 
@@ -269,6 +280,7 @@ function main(){
         date.setDate(date.getDate() - 2);
         var oldTime = parseDate(date);
 
+
         //遍历容器列表
         for(var i in containerArray){
             var currentCo = containerArray[i];
@@ -280,7 +292,46 @@ function main(){
   })
   .fail(function(err){
       console.log(err.message);
+  })
+  .done();
+}
+
+var timeHander;
+
+var count = 0;
+
+//循环运行主函数
+function runingMainForever(){
+
+  async.forever(function (next) {
+
+      console.log('running main func at time ' + parseDate(new Date(), true) + '...');
+      main();
+      timeHander = setTimeout(next, 3000); //５分钟插入一次数据
+  },
+  function(stop){
+      if(timeHander){
+          clearTimeout(timeHander);
+      }
+      connection.end();//关闭数据库
+      return ;
   });
 }
 
-main();
+/**
+ * 入口函数
+ * 每次重新运行脚本都会先运行此函数，函数用于创建用于存储资源数据的数据库(如果不存在的话)并使用当前数据库(USE database)
+ * 在返回的promise对象的fulfile方法中运行runingMainForever函数开始资源监控和存储
+ * @return {promise对象}　用于数据库连接成功后的后续动作
+ */
+createAndConnectDB()
+.then(function(){
+    //创建成功以后运行主函数
+    console.log('use database ' + dbname + 'successfully...');
+
+    console.log('start monitor...');
+    runingMainForever();
+
+}).fail(function(err){
+    console.log(err);
+}).done();
