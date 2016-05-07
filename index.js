@@ -344,8 +344,6 @@ function main(){
 
 var timeHander;
 
-var count = 0;
-
 //循环运行主函数
 function runingMainForever(){
 
