@@ -34,8 +34,7 @@ function deleteLogFile(path){
       });
   }
 }
-//删除过期日志
-deleteLogFile(logDir);
+
 
 
 //日志功能 记录每天的运行日志 只保留最近7天的日志文件
@@ -346,6 +345,8 @@ var timeHander;
 function runingMainForever(){
 
   async.forever(function (next) {
+      //删除过期日志
+      deleteLogFile(logDir);
       main();
       timeHander = setTimeout(next, 300000); //５分钟插入一次数据
   },
